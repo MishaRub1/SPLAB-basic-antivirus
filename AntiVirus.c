@@ -22,7 +22,8 @@ typedef enum {
 static EndianMode g_fileEndian = ENDIAN_LITTLE;
 link* SignatureList = NULL;
 
-
+static size_t scan_buffer(unsigned char* buffer, size_t size, link* virus_list, const char* filename, int fixMode);
+static int read_file_to_buffer(const char* filename, unsigned char* buffer, size_t bufferSize, size_t* outBytesRead);
 
 void printHex(const unsigned char *buffer, size_t size, FILE* outputfile) {
     if (outputfile == NULL) {
@@ -112,19 +113,7 @@ void list_free(link* virus_list) {
 }
 
 void detectViruses(unsigned char* buffer, size_t size, link* virus_list) {
-    for (link* current = virus_list; current != NULL; current = current->nextVirus) {
-        if (current->vir->SigSize > size) {
-            continue;
-        }
-
-        for (size_t i = 0; i + current->vir->SigSize <= size; i++) {
-            if (memcmp(buffer + i, current->vir->sig, current->vir->SigSize) == 0) {
-                printf("Starting byte at: %zu\n", i);
-                printf("Virus name: %.*s\n", 16, current->vir->virusName);
-                printf("Virus size: %hu\n\n", current->vir->SigSize);
-            }
-        }
-    }
+    (void)scan_buffer(buffer, size, virus_list, NULL, 0);
 }
 
 static void PrintSignatures(void) {
@@ -203,34 +192,95 @@ static void DetectViruses(void) {
         return;
     }
 
-    FILE* file = fopen(filename, "rb");
-    if (file == NULL) {
-        printf("Could not open file %s\n", filename);
+    unsigned char buffer[10000];
+    size_t bytesRead = 0;
+    if (!read_file_to_buffer(filename, buffer, sizeof(buffer), &bytesRead)) {
         return;
     }
-
-    unsigned char buffer[10000];
-    size_t bytesRead = fread(buffer, 1, sizeof(buffer), file);
-    fclose(file);
 
     detectViruses(buffer, bytesRead, SignatureList);
 }
 
-static void neutralize_virus(char *filename, int signatureOffset) {
-    FILE* file = fopen(filename, "r+");
+static void neutralize_virus(char *fileName, int signatureOffset) {
+    FILE* file = fopen(fileName, "rb+");
     if (file == NULL) {
-        printf("Could not open file %s\n", filename);
+        printf("Could not open file %s\n", fileName);
         return;
     }
-    
-    fseek(file, signatureOffset, SEEK_SET);
-    fputc(0xC3, file);
+
+    if (fseek(file, signatureOffset, SEEK_SET) != 0) {
+        printf("Failed to seek in file %s\n", fileName);
+        fclose(file);
+        return;
+    }
+
+    unsigned char retInstruction = 0xC3;
+    if (fwrite(&retInstruction, 1, 1, file) != 1) {
+        printf("Failed to write to file %s\n", fileName);
+    }
+
     fclose(file);
 }
 
+static int read_file_to_buffer(const char* filename, unsigned char* buffer, size_t bufferSize, size_t* outBytesRead) {
+    FILE* file = fopen(filename, "rb");
+    if (file == NULL) {
+        printf("Could not open file %s\n", filename);
+        return 0;
+    }
+
+    *outBytesRead = fread(buffer, 1, bufferSize, file);
+    fclose(file);
+    return 1;
+}
+
+static size_t scan_buffer(unsigned char* buffer, size_t size, link* virus_list, const char* filename, int fixMode) {
+    size_t matches = 0;
+
+    for (link* current = virus_list; current != NULL; current = current->nextVirus) {
+        if (current->vir->SigSize > size) {
+            continue;
+        }
+
+        for (size_t i = 0; i + current->vir->SigSize <= size; i++) {
+            if (memcmp(buffer + i, current->vir->sig, current->vir->SigSize) == 0) {
+                if (fixMode) {
+                    if (filename != NULL) {
+                        neutralize_virus((char*)filename, (int)i);
+                    }
+                } else {
+                    printf("Starting byte at: %zu\n", i);
+                    printf("Virus name: %.*s\n", 16, current->vir->virusName);
+                    printf("Virus size: %hu\n\n", current->vir->SigSize);
+                }
+                matches++;
+            }
+        }
+    }
+
+    return matches;
+}
+
 static void FixFile(void) {
-    
-    
+    char filename[256];
+    if (fscanf(stdin, "%255s", filename) != 1) {
+        printf("Failed to read file name\n");
+        return;
+    }
+    fgetc(stdin);
+
+    if (SignatureList == NULL) {
+        printf("No signatures\n");
+        return;
+    }
+
+    unsigned char buffer[10000];
+    size_t bytesRead = 0;
+    if (!read_file_to_buffer(filename, buffer, sizeof(buffer), &bytesRead)) {
+        return;
+    }
+
+    (void)scan_buffer(buffer, bytesRead, SignatureList, filename, 1);
 }
 
 static void AIAnalysisOfFile(void) {
