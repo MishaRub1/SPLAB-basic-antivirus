@@ -216,8 +216,21 @@ static void DetectViruses(void) {
     detectViruses(buffer, bytesRead, SignatureList);
 }
 
+static void neutralize_virus(char *filename, int signatureOffset) {
+    FILE* file = fopen(filename, "r+");
+    if (file == NULL) {
+        printf("Could not open file %s\n", filename);
+        return;
+    }
+    
+    fseek(file, signatureOffset, SEEK_SET);
+    fputc(0xC3, file);
+    fclose(file);
+}
+
 static void FixFile(void) {
-    printf("Not implemented yet\n");
+    
+    
 }
 
 static void AIAnalysisOfFile(void) {
