@@ -112,7 +112,7 @@ void list_free(link* virus_list) {
     }
 }
 
-void detectViruses(unsigned char* buffer, size_t size, link* virus_list) {
+static void detect_viruses(unsigned char* buffer, size_t size, link* virus_list) {
     (void)scan_buffer(buffer, size, virus_list, NULL, 0);
 }
 
@@ -125,12 +125,18 @@ static void PrintSignatures(void) {
 }
 
 static void LoadSignatures(void) {
+    char input_line[256];
     char filename[256];
-    if (fscanf(stdin, "%255s", filename) != 1) {
-        printf("Failed to read file name\n");
+
+    if (fgets(input_line, sizeof(input_line), stdin) == NULL) {
+        printf("Failed to read input\n");
         return;
     }
-    fgetc(stdin);
+
+    if (sscanf(input_line, "%255s", filename) != 1) {
+        printf("Failed to parse file name\n");
+        return;
+    }
 
     FILE* file = fopen(filename, "rb");
     if (file == NULL) {
@@ -180,12 +186,18 @@ static void LoadSignatures(void) {
 }
 
 static void DetectViruses(void) {
+    char input_line[256];
     char filename[256];
-    if (fscanf(stdin, "%255s", filename) != 1) {
-        printf("Failed to read file name\n");
+
+    if (fgets(input_line, sizeof(input_line), stdin) == NULL) {
+        printf("Failed to read input\n");
         return;
     }
-    fgetc(stdin);
+
+    if (sscanf(input_line, "%255s", filename) != 1) {
+        printf("Failed to parse file name\n");
+        return;
+    }
 
     if (SignatureList == NULL) {
         printf("No signatures\n");
@@ -198,7 +210,7 @@ static void DetectViruses(void) {
         return;
     }
 
-    detectViruses(buffer, bytesRead, SignatureList);
+    detect_viruses(buffer, bytesRead, SignatureList);
 }
 
 static void neutralize_virus(char *fileName, int signatureOffset) {
@@ -262,12 +274,18 @@ static size_t scan_buffer(unsigned char* buffer, size_t size, link* virus_list, 
 }
 
 static void FixFile(void) {
+    char input_line[256];
     char filename[256];
-    if (fscanf(stdin, "%255s", filename) != 1) {
-        printf("Failed to read file name\n");
+
+    if (fgets(input_line, sizeof(input_line), stdin) == NULL) {
+        printf("Failed to read input\n");
         return;
     }
-    fgetc(stdin);
+
+    if (sscanf(input_line, "%255s", filename) != 1) {
+        printf("Failed to parse file name\n");
+        return;
+    }
 
     if (SignatureList == NULL) {
         printf("No signatures\n");
