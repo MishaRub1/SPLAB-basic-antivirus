@@ -40,7 +40,7 @@ make
 This builds the executable:
 
 ```bash
-./AntiVirus
+./virusDetector
 ```
 
 ---
@@ -48,7 +48,7 @@ This builds the executable:
 ## Run With Valgrind
 
 ```bash
-valgrind --leak-check=full --show-leak-kinds=all ./AntiVirus
+valgrind --leak-check=full --show-leak-kinds=all ./virusDetector
 ```
 
 Recommended: choose option `6` (`Quit`) to trigger full cleanup and verify leak-free execution.
@@ -68,9 +68,7 @@ Recommended: choose option `6` (`Quit`) to trigger full cleanup and verify leak-
 ## Project Files
 
 - `AntiVirus.c` - full implementation
-- `Makefile` - build rules
-
-If your course checker requires lowercase, provide `makefile` in submission zip as well.
+- `makefile` - build rules
 
 ---
 
