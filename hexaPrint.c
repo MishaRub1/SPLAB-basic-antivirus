@@ -1,16 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void printHex(const unsigned char *buffer, size_t size, FILE* outputfile) {
-    if (outputfile == NULL) {
-        printf("Could not open file" "\n");
-        return;
-    }
+#define BUFFER_SIZE 16
 
-    for (size_t i = 0; i < size; i++) {
-        fprintf(outputfile, "%02x ", buffer[i]);
+void PrintHex(const unsigned char *buffer, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        printf("%02X ", buffer[i]);
     }
-    fprintf(outputfile, "\n");
+    printf("\n");
 }
 
 int main(int argc, char **argv) {
@@ -25,13 +22,11 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    unsigned char buffer[16];
+    unsigned char buffer[BUFFER_SIZE];
     size_t bytesRead;
-    long position = 0;
 
     while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        printHex(buffer, bytesRead, stdout);
-        position += bytesRead;
+        PrintHex(buffer, bytesRead);
     }
 
     fclose(file);
