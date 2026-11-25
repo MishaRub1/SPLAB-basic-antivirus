@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define BUFFER_SIZE 10000
+
 typedef struct virus {
     unsigned short SigSize;
     char virusName[16];
@@ -21,6 +23,8 @@ typedef enum {
 
 static EndianMode g_fileEndian = ENDIAN_LITTLE;
 link* SignatureList = NULL;
+static unsigned char g_buffer[BUFFER_SIZE];
+static size_t g_bufferSize = 0;
 
 static size_t scan_buffer(unsigned char* buffer, size_t size, link* virus_list, const char* filename, int fixMode);
 static int read_file_to_buffer(const char* filename, unsigned char* buffer, size_t bufferSize, size_t* outBytesRead);
@@ -32,7 +36,7 @@ void printHex(const unsigned char *buffer, size_t size, FILE* outputfile) {
     }
     
     for (size_t i = 0; i < size; i++) {
-        fprintf(outputfile, "%02x ", buffer[i]);
+        fprintf(outputfile, "%02X ", buffer[i]);
     }
     fprintf(outputfile, "\n");
 }
@@ -73,8 +77,8 @@ virus* readSignature(FILE* filepointer) {
 
 void printSignature(virus* v, FILE* outputfile) {
     fprintf(outputfile, "Virus name: %.*s\n", 16, v->virusName);
-    fprintf(outputfile, "Virus signature length: %u\n", v->SigSize);
-    fprintf(outputfile, "Virus signature:\n");
+    fprintf(outputfile, "Virus size: %u\n", v->SigSize);
+    fprintf(outputfile, "signature:\n");
     printHex(v->sig, v->SigSize, outputfile);
 }
 
@@ -97,6 +101,7 @@ void list_print(link* virus_list, FILE* outputfile) {
     link* current = virus_list;
     while (current != NULL) {
         printSignature(current->vir, outputfile);
+        fprintf(outputfile, "\n");
         current = current->nextVirus;
     }
 }
@@ -112,8 +117,8 @@ void list_free(link* virus_list) {
     }
 }
 
-static void detect_viruses(unsigned char* buffer, size_t size, link* virus_list) {
-    (void)scan_buffer(buffer, size, virus_list, NULL, 0);
+static void detect_virus(void) {
+    (void)scan_buffer(g_buffer, g_bufferSize, SignatureList, NULL, 0);
 }
 
 static void PrintSignatures(void) {
@@ -128,6 +133,7 @@ static void LoadSignatures(void) {
     char input_line[256];
     char filename[256];
 
+    printf("Enter signatures file name:\n");
     if (fgets(input_line, sizeof(input_line), stdin) == NULL) {
         printf("Failed to read input\n");
         return;
@@ -189,6 +195,7 @@ static void DetectViruses(void) {
     char input_line[256];
     char filename[256];
 
+    printf("Enter suspected file name:\n");
     if (fgets(input_line, sizeof(input_line), stdin) == NULL) {
         printf("Failed to read input\n");
         return;
@@ -204,13 +211,11 @@ static void DetectViruses(void) {
         return;
     }
 
-    unsigned char buffer[10000];
-    size_t bytesRead = 0;
-    if (!read_file_to_buffer(filename, buffer, sizeof(buffer), &bytesRead)) {
+    if (!read_file_to_buffer(filename, g_buffer, sizeof(g_buffer), &g_bufferSize)) {
         return;
     }
 
-    detect_viruses(buffer, bytesRead, SignatureList);
+    detect_virus();
 }
 
 static void neutralize_virus(char *fileName, int signatureOffset) {
@@ -277,6 +282,7 @@ static void FixFile(void) {
     char input_line[256];
     char filename[256];
 
+    printf("Enter suspected file name:\n");
     if (fgets(input_line, sizeof(input_line), stdin) == NULL) {
         printf("Failed to read input\n");
         return;
@@ -292,18 +298,35 @@ static void FixFile(void) {
         return;
     }
 
-    unsigned char buffer[10000];
-    size_t bytesRead = 0;
-    if (!read_file_to_buffer(filename, buffer, sizeof(buffer), &bytesRead)) {
+    if (!read_file_to_buffer(filename, g_buffer, sizeof(g_buffer), &g_bufferSize)) {
         return;
     }
 
-    (void)scan_buffer(buffer, bytesRead, SignatureList, filename, 1);
+    (void)scan_buffer(g_buffer, g_bufferSize, SignatureList, filename, 1);
 }
 
 static void AIAnalysisOfFile(void) {
     printf("Not implemented yet\n");
 }
+
+static void Quit(void) {
+    list_free(SignatureList);
+    SignatureList = NULL;
+    exit(0);
+}
+
+struct fun_desc {
+    char *name;
+    void (*fun)(void);
+};
+
+struct fun_desc menu[] = {{"Load signatures", LoadSignatures},
+                          {"Print signatures", PrintSignatures},
+                          {"Detect viruses", DetectViruses},
+                          {"Fix file", FixFile},
+                          {"AI analysis of file", AIAnalysisOfFile},
+                          {"Quit", Quit},
+                          {NULL, NULL}};
 
 int main(int argc, char **argv) {
     (void)argc;
@@ -311,14 +334,16 @@ int main(int argc, char **argv) {
 
     char input[128];
     int option = 0;
+    int bound = 0;
+
+    while (menu[bound].name != NULL) {
+        bound++;
+    }
 
     while (1) {
-        printf("1) Load signatures\n");
-        printf("2) Print signatures\n");
-        printf("3) Detect viruses\n");
-        printf("4) Fix file\n");
-        printf("5) AI analysis of file\n");
-        printf("6) Quit\n");
+        for (int i = 0; menu[i].name != NULL; i++) {
+            printf("%d) %s\n", i + 1, menu[i].name);
+        }
         printf("Select one of the above options:\n");
 
         if (fgets(input, sizeof(input), stdin) == NULL) {
@@ -326,38 +351,16 @@ int main(int argc, char **argv) {
             break;
         }
 
-        if (sscanf(input, "%d", &option) != 1) {
+        if (sscanf(input, "%d", &option) != 1 || option < 1 || option > bound) {
             printf("Not within bounds\n");
-            continue;
+            break;
         }
+        printf("Within bounds\n");
 
-        switch (option) {
-        case 1:
-            LoadSignatures();
-            break;
-        case 2:
-            PrintSignatures();
-            break;
-        case 3:
-            DetectViruses();
-            break;
-        case 4:
-            FixFile();
-            break;
-        case 5:
-            AIAnalysisOfFile();
-            break;
-        case 6:
-            if (SignatureList != NULL) {
-                list_free(SignatureList);
-                SignatureList = NULL;
-            }
-            return 0;
-        default:
-            printf("Not within bounds\n");
-            break;
-        }
+        menu[option - 1].fun();
     }
 
+    list_free(SignatureList);
+    SignatureList = NULL;
     return 0;
 }
